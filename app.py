@@ -55,6 +55,9 @@ emoji_map = {
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 app.title = "JetSent - Airline Sentiment Analyzer"
 
+# This if for Render
+server = app.server
+
 app.index_string = '''
 <!DOCTYPE html>
 <html>
