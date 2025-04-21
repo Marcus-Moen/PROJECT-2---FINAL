@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: your-app-name
+    env: python
+    plan: free
+    startCommand: gunicorn app:app
+    autoDeploy: true
