@@ -5,10 +5,9 @@ import dash_bootstrap_components as dbc
 import pickle
 import re
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer
 from nltk.stem import WordNetLemmatizer
 import nltk
+import plotly.graph_objs as go
 
 # NLTK setup
 nltk.data.path.append('C:\\Users\\marcu\\AppData\\Roaming\\nltk_data')
@@ -26,9 +25,7 @@ with open('label_encoder.pkl', 'rb') as f:
     label_encoder = pickle.load(f)
 
 stop_words = set(stopwords.words('english'))
-
 lemmatizer = WordNetLemmatizer()
-# stemmer = PorterStemmer()
 
 def clean_text(text):
     try:
@@ -44,18 +41,14 @@ def clean_text(text):
         print(f"Error cleaning text: {text} -> {e}")
         return ""
 
-# Emoji mapping
 emoji_map = {
     'positive': '😊',
     'neutral': '😐',
     'negative': '😞'
 }
 
-# Bootstrap app setup
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 app.title = "JetSent - Airline Sentiment Analyzer"
-
-# This if for Render
 server = app.server
 
 app.index_string = '''
@@ -105,12 +98,10 @@ app.index_string = '''
 </html>
 '''
 
-# Layout
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
 
-            # Heading and subheading
             html.Div([
                 html.H1("🛩️ JetSent", className='text-center heading-brand mb-2'),
                 html.H5("AI-powered sentiment analysis for airline reviews", className='text-center text-muted mb-4')
@@ -141,7 +132,7 @@ app.layout = dbc.Container([
                         children=html.Div(id='prediction-output')
                     )
                 ])
-            ], className="p-4 shadow-lg bg-dark text-light mt-4")  # Added top margin
+            ], className="p-4 shadow-lg bg-dark text-light mt-4")
 
         ], width=12, lg=8, className="mx-auto")
     ], className="mt-5"),
@@ -150,7 +141,6 @@ app.layout = dbc.Container([
                 className='text-center mt-5 text-muted')
 ], fluid=True)
 
-# Callback - using State so it only triggers on button click
 @app.callback(
     Output('prediction-output', 'children'),
     Input('submit-button', 'n_clicks'),
@@ -173,7 +163,47 @@ def predict_sentiment(n_clicks, input_text):
             prediction = model.predict(vector)[0]
             sentiment_label = label_encoder.inverse_transform([prediction])[0]
             emoji = emoji_map.get(sentiment_label.lower(), '✈️')
-            return dbc.Alert(f"Predicted Sentiment: {sentiment_label.capitalize()} {emoji}", color="info", className="mt-4", style={'fontSize': '1.5rem'})
+
+            probs = model.predict_proba(vector)[0]
+            class_labels = label_encoder.inverse_transform(model.classes_)
+
+            # Plotly Donut Chart
+            # Enhanced Donut Chart
+            chart = dcc.Graph(
+                figure=go.Figure(
+                    data=[go.Pie(
+                        labels=[label.capitalize() for label in class_labels],
+                        values=probs,
+                        hole=0.55,
+                        marker=dict(
+                            colors=['#00cc96', '#a1a1a1', '#ef553b'],  # green, gray, red
+                            line=dict(color='#000000', width=2)
+                        ),
+                        textinfo='percent',
+                        textfont_size=18,
+                        hoverinfo='label+percent+value',
+                        pull=[0.1 if label == sentiment_label else 0 for label in class_labels],
+                        sort=False,
+                        insidetextorientation='radial'
+                    )],
+                    layout=go.Layout(
+                        title=dict(text='Sentiment Confidence', font_size=24, x=0.5),
+                        annotations=[dict(text=sentiment_label.capitalize(), x=0.5, y=0.5, font_size=22, showarrow=False)],
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(color='white'),
+                        showlegend=True,
+                        legend=dict(orientation="h", y=-0.2)
+                    )
+                ),
+                config={'displayModeBar': False}
+            )
+
+
+            return html.Div([
+                dbc.Alert(f"Predicted Sentiment: {sentiment_label.capitalize()} {emoji}", color="info", className="mt-4", style={'fontSize': '1.5rem'}),
+                chart
+            ])
 
         return ""
     except Exception as e:
@@ -181,9 +211,5 @@ def predict_sentiment(n_clicks, input_text):
         traceback.print_exc()
         return dbc.Alert(f"❌ Error: {str(e)}", color="danger", className="mt-4")
 
-# Run the app
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
